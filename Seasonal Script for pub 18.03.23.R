@@ -1,3 +1,11 @@
+##############
+#read in data#
+##############
+
+# Liver RNA seq for C57Bl6 mice
+load("~/Documents/Work/CBMR/Projects/Seasonal Study/RNA/Liver RNA-seq/Circadian Analysis/Seasonal Liver RNAseq/dataDGE.groups.Rdata")
+Pooled.Metadata <- read.csv("~/Documents/Work/CBMR/Projects/Seasonal Study/RNA/Liver RNA-seq/Circadian Analysis/Seasonal Liver RNAseq/Pooled Metadata.csv")
+
 ############
 #Packages#
 ###########
@@ -66,14 +74,6 @@ circadian_plotter_BL6 <- function(gene,sheet,time,columns,smoothing){
   d <- filter(summary,{{gene}} %in% sheet)
     graph <- ggplot(d,aes_string(x = time, y = "LogCPM", color = "Photoperiod")) + geom_linerange(aes(ymin=LogCPM, ymax=LogCPM+se)) +geom_point() + smoothing + theme_classic() + facet_wrap( ~ Symbol, scale = "free_y",ncol = columns)+ scale_color_manual(values=Photocolour)+scale_x_continuous(breaks=c(0,6,12,18,24),limits = c(0,24))+theme(strip.text = element_text(face = "italic"))
     return(graph)}
-
-##############
-#read in data#
-##############
-
-# Liver RNA seq for C57Bl6 mice
-load("~/Documents/Work/CBMR/Projects/Seasonal Study/RNA/Liver RNA-seq/Circadian Analysis/Seasonal Liver RNAseq/dataDGE.groups.Rdata")
-Pooled.Metadata <- read.csv("~/Documents/Work/CBMR/Projects/Seasonal Study/RNA/Liver RNA-seq/Circadian Analysis/Seasonal Liver RNAseq/Pooled Metadata.csv")
 
 ########################
 #Voom and limma of Liver RNA seq
