@@ -681,9 +681,9 @@ top_changed <- SLvsLL_DR %>% filter(average_expression > 2) %>% filter(category 
 #############################
 
 #read in data
-C3H_metadata <- read.csv("~/Documents/Work/CBMR/Projects/Seasonal Study/RNA/C3H liver RNA-seq/C3H Liver RNAseq/Metadata_Sheet.csv")
-load("~/Documents/Work/CBMR/Projects/Seasonal Study/RNA/C3H liver RNA-seq/C3H Liver RNAseq/data.raw.Rdata")
-C3H_counts <- data.raw
+C3H_metadata <- read.csv("~/Documents/Work/CBMR/Projects/Seasonal Study/RNA/C3H liver RNA-seq/C3H Liver RNAseq/C3H_Metadata_Sheet.csv")
+load("~/Documents/Work/CBMR/Projects/Seasonal Study/RNA/C3H liver RNA-seq/C3H Liver RNAseq/C3H.data.raw.Rdata")
+C3H_counts <- C3H.data.raw
 colnames(C3H_counts)=c("0143_10","0143_11","0143_12","0143_13","0143_14","0143_15","0143_16","0143_17","0143_18","0143_19","0143_01" ,"0143_20","0143_21","0143_22","0143_23","0143_24","0143_25","0143_26","0143_27","0143_28","0143_29","0143_02","0143_30","0143_31","0143_32","0143_03","0143_04","0143_05", "0143_06","0143_07","0143_08","0143_09")
 
 ####### Design #######
