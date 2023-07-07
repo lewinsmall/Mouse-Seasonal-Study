@@ -3,8 +3,8 @@
 ##############
 
 # Liver RNA seq for C57Bl6 mice
-load("~/Documents/Work/CBMR/Projects/Seasonal Study/RNA/Liver RNA-seq/Circadian Analysis/Seasonal Liver RNAseq/dataDGE.groups.Rdata")
-Pooled.Metadata <- read.csv("~/Documents/Work/CBMR/Projects/Seasonal Study/RNA/Liver RNA-seq/Circadian Analysis/Seasonal Liver RNAseq/Pooled Metadata.csv")
+load("dataDGE.groups.Rdata")
+Pooled.Metadata <- read.csv("Pooled Metadata.csv")
 
 ############
 #Packages#
@@ -21,6 +21,7 @@ library(DGEobj.utils)
 library(stringr)
 library(ggplotify)
 library(data.table)
+library(pheatmap)
 
 ############   
 #Functions#
@@ -289,8 +290,8 @@ lfd_vs_hfd_liver_clocks <- SL_diet_clock_plot/EL_diet_clock_plot/LL_diet_clock_p
 #############################################################################
 
 # load in Matrix of scaled qPCR data and metadata
-qPCR_matrix <- read_csv("/Users/cnh943/Documents/Work/CBMR/Projects/Seasonal Study/RNA/R analysis/Seasonal qPCR/qPCR_matrix.csv")
-qPCR_metadata <- read_delim("/Users/cnh943/Documents/Work/CBMR/Projects/Seasonal Study/RNA/R analysis/Seasonal qPCR/qPCR_metadata.csv",";", escape_double = FALSE, trim_ws = TRUE)
+qPCR_matrix <- read_csv("qPCR_matrix.csv")
+qPCR_metadata <- read_delim("qPCR_metadata.csv",";", escape_double = FALSE, trim_ws = TRUE)
 
 # Add in ST time to metadata
 qPCR_metadata <-  qPCR_metadata %>% mutate(qPCR_metadata, STime = case_when(photoperiod %in% "SL" ~ qPCR_metadata$zt_off-4.5,photoperiod %in% "EL" ~ qPCR_metadata$zt_off-3,photoperiod %in% "LL" ~ qPCR_metadata$zt_off-1.5)) %>% mutate(ST=sapply(STime,timer)) %>% dplyr::select(-STime) %>% merge(y=Pooled.Metadata[c("Subject.Name","ExT")],by.x = "sample_id",by.y = "Subject.Name")
@@ -629,12 +630,29 @@ categories$photoperiods <- factor(categories$photoperiods, levels = c("SLvsLL","
 ##### Figure 4A ########
 category_bar_plot <- ggplot(categories,aes(y=category,x=value,fill=photoperiods))+geom_col(position = "dodge",color="black")+scale_fill_manual(values=c("#9DC1A3","#56B4E9","#FFCC33"))+theme_classic()+labs(y="",x="Number of Transcripts",fill="")+ theme(legend.position="top")+ geom_text(aes(label=value), position=position_dodge(width=0.9), hjust=-0.5) + scale_x_continuous(trans='log10',limits = c(-1, 10000))
 
+##### Figure 4B (Heatmap) #####
+hiamp <- filter(dodr_ST_SLvsLL,LL_amp>1|SL_amp>1)
+hiamp <- arrange(hiamp,category,decreasing = SL_Phase_h) 
+summary_wide <- summary %>% mutate("comb_group"=paste(Photoperiod,ST,sep= "_")) %>% dplyr::select("genes","LogCPM","comb_group") %>% pivot_wider(names_from = c(comb_group),values_from = LogCPM)
+column_sort <- c("SL_1.5","SL_5.5","SL_9.5","SL_13.5","SL_17.5","SL_21.5","EL_1","EL_5","EL_9","EL_13","EL_17","EL_21","LL_0.5","LL_4.5","LL_8.5","LL_12.5","LL_16.5","LL_20.5")
+summary_wide_mat <- summary_wide %>% column_to_rownames(var = "genes") %>% as.matrix(rownames = T)
+summary_wide_mat <- summary_wide_mat[,match(column_sort, colnames(summary_wide_mat))]
+summary_wide_mat <- summary_wide_mat[match(hiamp$id, rownames(summary_wide_mat)),]
+pheatmap_annotations <- tibble("comb_group" = colnames(summary_wide_mat)) %>% mutate("Photoperiod" = sub("_.*", "", comb_group)) %>% mutate("ST" = sub(".*_", "", comb_group)) %>% column_to_rownames("comb_group")
+pheatmap_annotations$ST <- as.numeric(as.character(pheatmap_annotations$ST))
+rownames(pheatmap_annotations) = colnames(summary_wide_mat)
+row_annotations  <- hiamp %>% column_to_rownames("id") %>% dplyr::select("category")
+summary_wide_mat <- summary_wide_mat[match(hiamp$id, rownames(summary_wide_mat)),]
+rownames(row_annotations) <- rownames(summary_wide_mat)
+anno_colour <- list(Photoperiod = c(SL = "#56B4E9",EL = "#000000", LL = "#FFCC33"),ST = c("white","red"),category = c(change = "#F5B19C", gain = "#BFD0CA", loss = "#0F4C81", same = "#5C9090"))
+heatmap_with_same <- pheatmap(mat = summary_wide_mat,scale = "row",annotation_col=pheatmap_annotations,annotation_row=row_annotations,cluster_cols = F,cluster_rows = F,show_rownames = F,show_colnames = F,gaps_row = c(142,152,172),annotation_colors = anno_colour, gaps_col = c(6,12))
+
 ##### Density plot combined diets ########
 
 density_amp_diets <- merge(dodr_ST_SLvsEL,dodr_ST_LLvsEL,by="id", all=T) %>% dplyr::select(c("id",SL_amp,EL_amp.x,LL_amp)) %>% dplyr::rename(EL_amp = EL_amp.x) %>% pivot_longer(cols = 2:4,values_to = "amp",names_to = "photoperiod")
 density_amp_diets$photoperiod <- factor(density_amp_diets$photoperiod,levels = c("SL_amp","EL_amp","LL_amp"))
 
-##### Figure 4B ########
+##### Figure 4C ########
 density_plot_diet <- ggplot(density_amp_diets,aes(x=amp,color=photoperiod))+geom_density(size=1)+scale_color_manual(labels=c("SL","EL","LL"),values=Photocolour)+scale_x_continuous(limits = c(0, 5))+ labs(x="log2(amplitude)")+ theme(plot.title = element_text(hjust = 0.5))+ labs(fill = "Photoperiod",color="Photoperiod")+theme_classic()
 
 #####Plotting amp vs expression
@@ -644,7 +662,7 @@ amp_expression$cutoff <- factor(amp_expression$cutoff,levels = c("LL","NO","SL")
 amp_expression$category <- factor(amp_expression$category,levels = c("same","gain","loss","change"))
 amp_expression$label <- factor(amp_expression$label,levels = c("YES","NO"))
 
-##### Figure 4C ########
+##### Figure 4D ########
 amp_vs_express <- ggplot(amp_expression, aes(x=amp_difference,y=average_expression,color=cutoff))+ geom_point(alpha=0.5)+ labs(x="log2 amplitude difference (SLvsLL) ",y="LogCPM",color="")+scale_color_manual(labels = c("Higher in LL", "Similar Amp", "Higher in SL"),values=c("#FFCC33","#000000", "#56B4E9"))+theme_classic()+theme(legend.position="top")+ geom_text( 
   data=amp_expression %>% filter(amp_expression$label=="YES"),
   aes(label=Symbol),nudge_x = 0.3,check_overlap = T,show.legend = F)
@@ -658,7 +676,7 @@ amp_gain_BP_GSE <- clusterProfiler::enrichGO(amp_gain$entrez,OrgDb = "org.Mm.eg.
 
 SLvsLL_change_BP <- enrichGO(gene = SLvsLL_change$entrez,OrgDb = "org.Mm.eg.db",universe=SLvsLL_CR$entrez,ont="BP",pvalueCutoff = 0.1)
 
-##### Figure 4D ########
+##### Figure 4E ########
 Merged_dotplot_BP <- merge_result(list(amp_loss = amp_loss_BP_GSE, rhythm_change = SLvsLL_change_BP, amp_gain = amp_gain_BP_GSE)) %>%
   dotplot(., showCategory=5)
 
@@ -672,7 +690,7 @@ top_amp_in_SL <- SLvsLL_DR %>% filter(average_expression > 2) %>% slice_max(amp_
 top_amp_in_LL <- SLvsLL_DR %>% filter(average_expression > 2) %>% slice_min(amp_difference,n=4)
 top_changed <- SLvsLL_DR %>% filter(average_expression > 2) %>% filter(category == "change") %>% slice_min(adj_p_val_DR,n=4)%>% slice_min(adj_p_val_LL_or_SL,n=4)
 
-##### Figure 4E ########
+##### Figure 4F ########
 
 (circadian_plotter_BL6(gene = genes,sheet = top_amp_in_LL$id,time = "ST",columns = 1,smoothing = cosinor_curve)|circadian_plotter_BL6(gene = genes,sheet = top_changed$id,time = "ST",columns = 1,smoothing = cosinor_curve)|circadian_plotter_BL6(gene = genes,sheet = top_amp_in_SL$id,time = "ST",columns = 1,smoothing = cosinor_curve))+plot_layout(guides = "collect")
 
@@ -683,7 +701,7 @@ top_changed <- SLvsLL_DR %>% filter(average_expression > 2) %>% filter(category 
 #read in data
 C3H_metadata <- read.csv("~/Documents/Work/CBMR/Projects/Seasonal Study/RNA/C3H liver RNA-seq/C3H Liver RNAseq/C3H_Metadata_Sheet.csv")
 load("~/Documents/Work/CBMR/Projects/Seasonal Study/RNA/C3H liver RNA-seq/C3H Liver RNAseq/C3H.data.raw.Rdata")
-C3H_counts <- C3H.data.raw
+C3H_counts <- data.raw
 colnames(C3H_counts)=c("0143_10","0143_11","0143_12","0143_13","0143_14","0143_15","0143_16","0143_17","0143_18","0143_19","0143_01" ,"0143_20","0143_21","0143_22","0143_23","0143_24","0143_25","0143_26","0143_27","0143_28","0143_29","0143_02","0143_30","0143_31","0143_32","0143_03","0143_04","0143_05", "0143_06","0143_07","0143_08","0143_09")
 
 ####### Design #######
@@ -726,6 +744,12 @@ names(C3HresDE) <- colnames(C3Hcontrasts)
 
 hist(C3HresDE$photo$P.Value)
 C3H_cpm <- cpm(C3H_DGE, log=TRUE)
+
+###### For GEO upload
+
+C3H_GEO <- as.data.frame(C3H_cpm,row.names = rownames(C3H_cpm)) %>% rownames_to_column(var = "ENSEMBL") %>% left_join(y=C3H_DGE$genes, by="ENSEMBL") %>% relocate(c("Symbol","ENTREZ"),.after = "ENSEMBL") %>% dplyr::rename(ensembl=ENSEMBL,entrez=ENTREZ)
+write.csv(C3H_GEO,"GSE222550_processed.data.csv")
+gzip("GSE222550_processed.data.csv","GSE222550_processed.data.csv.gz")
 
 ### MDS ###
 C3H_mds <- plotMDS(C3H_DGE, top = 500, plot = F)
